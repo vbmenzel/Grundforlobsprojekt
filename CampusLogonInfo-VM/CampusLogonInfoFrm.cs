@@ -1,4 +1,5 @@
-using System.DirectoryServices.AccountManagement;
+using Cassia; // Required for the Cassia library
+
 namespace CampusLogonInfo_VM
 {
     public partial class CampusLogonInfo : Form
@@ -30,7 +31,8 @@ namespace CampusLogonInfo_VM
                 : Environment.MachineName;
             lblComputerName.Text += computerName;
 
-            logonTime = GetActiveDirectoryLogonTime();
+            // Get the logon time for the CURRENT session using the simple Cassia library.
+            logonTime = GetSessionLogonTime();
             lblLogonTime.Text += logonTime.ToString("dd/MM/yy HH:mm:ss");
 
             // Start the timer to continuously update the session duration.
@@ -38,41 +40,37 @@ namespace CampusLogonInfo_VM
         }
 
         /// <summary>
-        /// Attempts to fetch the user's last logon time from Active Directory.
-        /// Returns the current time (DateTime.Now) as a fallback if the lookup fails for any reason.
+        /// Gets the start time of the current user's session using the Cassia library.
+        /// This provides a simple, readable, and reliable way to get the logon time.
         /// </summary>
-        /// <returns>A DateTime object representing the logon time.</returns>
-        private DateTime GetActiveDirectoryLogonTime()
+        /// <returns>A DateTime for the session start, or DateTime.Now as a fallback.</returns>
+        private DateTime GetSessionLogonTime()
         {
             try
             {
-                // Establish a connection to the current domain. The 'using' statement ensures
-                // the connection is properly disposed of afterwards.
-                using (
-                    PrincipalContext context = new PrincipalContext(ContextType.Domain)
-                )
-                {
-                    // Find the current user's object in Active Directory by their account name.
-                    UserPrincipal? userPrincipal = UserPrincipal.FindByIdentity(
-                        context,
-                        IdentityType.SamAccountName,
-                        Environment.UserName
-                    );
+                // Cassia is a library that simplifies access to Windows Terminal Services.
+                // We create a manager object to interact with it.
+                TerminalServicesManager manager = new TerminalServicesManager();
 
-                    // Safely check if the user was found AND if the LastLogon property has a value.
-                    if (userPrincipal?.LastLogon.HasValue == true)
-                    {
-                        return userPrincipal.LastLogon.Value;
-                    }
+                // Get the current user's session directly using Cassia's helper property.
+                ITerminalServicesSession? session = manager.CurrentSession;
+
+                // The LoginTime property is nullable, so we safely check if it has a value.
+                if (session?.LoginTime.HasValue == true)
+                {
+                    return session.LoginTime.Value;
                 }
             }
             catch
             {
-                // This catch block intentionally swallows any exception (e.g., computer not on domain,
-                // network issues, permissions error). The method will then proceed to the final
-                // return statement, providing a safe fallback.
+                // This catch block intentionally swallows any exception.
+                // Logically, the fallback 'return DateTime.Now;' could be placed here.
+                // However, the compiler would then complain that 'not all code paths return a value'
+                // because the return inside the 'try' block is conditional.
+                // Therefore, the method proceeds to the final return statement to appease the compiler.
             }
-            // Fallback: return the current time if the AD lookup was unsuccessful.
+
+            // Fallback: If the Cassia lookup fails for any reason, return the current time.
             return DateTime.Now;
         }
 
@@ -102,22 +100,31 @@ namespace CampusLogonInfo_VM
         }
 
         // --- Clipboard Copy Methods ---
-        // These methods handle the click events from the MenuStrip.
-
+        // (These are unchanged)
         private void copyUsernameTsmi_Click(object sender, EventArgs e)
-        { Clipboard.SetText(lblUsername.Text); }
+        {
+            Clipboard.SetText(lblUsername.Text);
+        }
 
         private void copyComputerNameTsmi_Click(object sender, EventArgs e)
-        { Clipboard.SetText(lblComputerName.Text); }
+        {
+            Clipboard.SetText(lblComputerName.Text);
+        }
 
         private void copyDomainTsmi_Click(object sender, EventArgs e)
-        { Clipboard.SetText(lblDomain.Text); }
+        {
+            Clipboard.SetText(lblDomain.Text);
+        }
 
         private void copyLogonTimeTsmi_Click(object sender, EventArgs e)
-        { Clipboard.SetText(lblLogonTime.Text); }
+        {
+            Clipboard.SetText(lblLogonTime.Text);
+        }
 
         private void copySessionDurationTsmi_Click(object sender, EventArgs e)
-        { Clipboard.SetText(lblSessionDuration.Text); }
+        {
+            Clipboard.SetText(lblSessionDuration.Text);
+        }
 
         private void copyAllInfoTsmi_Click(object sender, EventArgs e)
         {
